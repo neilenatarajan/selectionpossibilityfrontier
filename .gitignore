@@ -1,2 +1,3 @@
 dist/*
 frontier.egg-info/*
+.ipynb_checkpoints/*
