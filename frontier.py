@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+import numbers
+import warnings
+
 
 
 # The following is borrowed from scikit-learn v0.17
@@ -23,10 +26,9 @@ def check_random_state(seed):
                      ' instance' % seed)
 
 
-
 # The following is borrowed from entrofy
-def __optimise_cohort(X, k, rng, w=None, q=None, pre_selects=None, quantile=0.0, alpha=0.5, s=None, sratio=0):
-        '''Finds an optimal cohort with given s and q
+def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
+    '''Finds an optimal cohort with given s and q
 
     Parameters
     ----------
@@ -43,8 +45,8 @@ def __optimise_cohort(X, k, rng, w=None, q=None, pre_selects=None, quantile=0.0,
         Weighting over df columns
         By default, a uniform weighting is used
 
-    q : np.array
-        1D Array of dim n. Contains target proportions by attribute.
+    df : function (vectorised)
+        Vectorised function on 1d np arrays. Returns diversity function.
 
     pre_selects : None or iterable
         Optionally, you may pre-specify a set of rows to be forced into the
@@ -82,28 +84,15 @@ def __optimise_cohort(X, k, rng, w=None, q=None, pre_selects=None, quantile=0.0,
     n_participants, n_attributes = X.shape
     X = np.array(X, dtype=float)
 
-    if w is None:
-        w = np.ones(n_attributes)
-
-    if q is None:
-        q = 0.5 * np.ones(n_attributes)
-
     assert 0 < k <= n_participants
-    assert not np.any(w < 0)
-    assert np.all(q >= 0.0) and np.all(q <= 1.0)
-    assert len(w) == n_attributes
-    assert len(q) == n_attributes
     assert (s is not None) or (sratio == 0)
     assert sratio >= 0 and sratio <= 1
-    
+
     if k == n_participants:
         return np.arange(n_participants)
 
-    # Convert fractions to sums
-    q = np.round(k * q)
-
     if s is not None:
-        qmax = __objective_diversity(q, w, q, alpha=alpha)
+        qmax = dfmax
         s[np.isnan(s)] = s.min()
         s = (s + s.min()) / (s.min() + s.max())
         
@@ -144,27 +133,34 @@ def __optimise_cohort(X, k, rng, w=None, q=None, pre_selects=None, quantile=0.0,
         # Simple if not calculating quality
         
         if sratio == 0:
-            delta = __objective_diversity(p_new, w, q, alpha=alpha) - __objective_diversity(p, w, q, alpha=alpha)
+            delta = df(p_new) - df(p)
            
         # If calculating quality, scale both scores and sum
         else:
-            delta_div_scaled = (__objective_diversity(p_new, w, q, alpha=alpha) - __objective_diversity(p, w, q, alpha=alpha)) / qmax
+            delta_div_scaled = (df(p_new) - df(p)) / qmax
             delta_qual_scaled = s / k
             delta = delta_div_scaled*(1-sratio) + delta_qual_scaled*sratio
 
         # Knock out the points we've already taken
         delta[y] = -np.inf
 
-        # Select the top score.  Break near-ties randomly.
+        # Select the top score.  
+        # If quantile is enabled, break near-ties randomly.
         delta_real = delta[np.isfinite(delta)]
         target_score = np.percentile(delta_real, 100 * (1.0-quantile))
 
         new_idx = rng.choice(np.flatnonzero(delta >= target_score))
         y[new_idx] = True
     
-    return ((__objective_diversity(np.nansum(X[y], axis=0), w, q, alpha=alpha) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
+    return ((df(np.nansum(X[y], axis=0)) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
 
+def __objective_diversity(p, w, q, alpha=0.5):
+    '''Compute the diversity value of a solution.'''
+    return ((np.minimum(q, p))**(alpha)).dot(w)
 
+# def __national_diversity(p, w, q, alpha=0.5):
+#     '''Compute the diversity value of a solution.'''
+#     return (np.minumum(np.sum(np.minimum(q, p)))**(alpha))
 
 def __return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
     '''Return Cohorts on a Frontier
@@ -204,6 +200,26 @@ def __return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
     score : float
         The score of the solution found.  Larger is better.
     '''
+
+    n_participants, n_attributes = X.shape
+
+    if q is None:
+        q = 0.5 * np.ones(n_attributes)
+
+    if w is None:
+        w = np.ones(n_attributes)
+
+    assert not np.any(w < 0)
+    assert np.all(q >= 0.0) and np.all(q <= 1.0)
+    assert len(w) == n_attributes
+    assert len(q) == n_attributes
+
+    # Convert fractions to sums
+    q = np.round(k * q)
+
+    divfunc = lambda x: __objective_diversity(x, w, q)
+    dfmax = divfunc(q)
+
     
     ds = []
     qs = []
@@ -223,8 +239,8 @@ def __return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
             X, 
             k, 
             check_random_state(seed),
-            w=w,
-            q=q,
+            df = divfunc,
+            dfmax = dfmax,
             quantile=0,
             s=s,
             sratio=sratio
