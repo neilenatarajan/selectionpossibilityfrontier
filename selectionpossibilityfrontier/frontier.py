@@ -158,7 +158,7 @@ def __proportional_targets(p, q, w, alpha=0.5):
     '''Compute the diversity value of a solution.'''
     return ((np.minimum(q, p))**(alpha)).dot(w)
 
-def make_proportional_targets(k, q, w, alpha=0.5):
+def make_proportional_targets(k, q, w=None, alpha=0.5):
     '''Returns Proportional Diversity Function
 
     Parameters
@@ -184,6 +184,9 @@ def make_proportional_targets(k, q, w, alpha=0.5):
     dfmax : float
         Maximum value of the diversity function
     '''
+    if w is None:
+        w = np.ones(X.shape[1])
+
     assert not np.any(w < 0)
     assert np.all(q >= 0.0) and np.all(q <= 1.0)
 
@@ -198,7 +201,7 @@ def __presence_targets(p, q, n, alpha=0.5):
     # Or should this be the sum of the greatest n nations, up to the limit?
     return (np.minumum(np.sum(np.minimum(q, p)), n*q)**(alpha))
 
-def return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
+def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
     '''Return Cohorts on a Frontier
 
     Parameters
@@ -237,10 +240,6 @@ def return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
         The score of the solution found.  Larger is better.
     '''
 
-    if w is None:
-        w = np.ones(X.shape[1])
-
-    divfunc, dfmax = make_proportional_targets(k, q, w)
 
     ds = []
     qs = []
@@ -251,7 +250,7 @@ def return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
         if ext:  
             sratio = i/(res-1)
         else:
-            sratio = i+1/(res+1)
+            sratio = (i+1)/(res+1)
 
         div, qual, c = __optimise_cohort(
             X, 
