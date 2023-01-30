@@ -154,15 +154,51 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
     
     return ((df(np.nansum(X[y], axis=0)) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
 
-def __objective_diversity(p, w, q, alpha=0.5):
+def __proportional_targets(p, q, w, alpha=0.5):
     '''Compute the diversity value of a solution.'''
     return ((np.minimum(q, p))**(alpha)).dot(w)
 
-# def __national_diversity(p, w, q, alpha=0.5):
-#     '''Compute the diversity value of a solution.'''
-#     return (np.minumum(np.sum(np.minimum(q, p)))**(alpha))
+def make_proportional_targets(k, q, w, alpha=0.5):
+    '''Returns Proportional Diversity Function
 
-def __return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
+    Parameters
+    ----------
+    k : int in (0, len(df)]
+        The number of participants to select
+    
+    q : np.array
+        1D Array of dim n. Contains target proportions by attribute.
+
+    w : optional, dict {column: float}
+        Weighting over df columns
+        By default, a uniform weighting is used
+        
+    alpha : float in (0, 1]
+        Scaling exponent for the objective function.
+
+    Returns
+    -------
+    divfunc : np.array -> float
+        Function for calculating proportional diversity
+
+    dfmax : float
+        Maximum value of the diversity function
+    '''
+    assert not np.any(w < 0)
+    assert np.all(q >= 0.0) and np.all(q <= 1.0)
+
+    # Convert fractions to sums
+    q = np.round(k * q)
+
+    return (lambda p: __proportional_targets(p, q, w, alpha), __proportional_targets(q, q, w, alpha))
+
+def __presence_targets(p, q, n, alpha=0.5):
+    '''Compute the diversity value of a solution.'''
+    # Should this be the straightforward sum of all of the nations, up to the limit
+    # Or should this be the sum of the greatest n nations, up to the limit?
+    return (np.minumum(np.sum(np.minimum(q, p)), n*q)**(alpha))
+
+def return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
     '''Return Cohorts on a Frontier
 
     Parameters
@@ -201,32 +237,14 @@ def __return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
         The score of the solution found.  Larger is better.
     '''
 
-    n_participants, n_attributes = X.shape
-
-    if q is None:
-        q = 0.5 * np.ones(n_attributes)
-
     if w is None:
-        w = np.ones(n_attributes)
+        w = np.ones(X.shape[1])
 
-    assert not np.any(w < 0)
-    assert np.all(q >= 0.0) and np.all(q <= 1.0)
-    assert len(w) == n_attributes
-    assert len(q) == n_attributes
+    divfunc, dfmax = make_proportional_targets(k, q, w)
 
-    # Convert fractions to sums
-    q = np.round(k * q)
-
-    divfunc = lambda x: __objective_diversity(x, w, q)
-    dfmax = divfunc(q)
-
-    
     ds = []
     qs = []
     cs = []
-
-    if k is None:
-        k = categories.shape[0] // 2
 
     for i in range(res):
         
@@ -254,12 +272,12 @@ def __return_frontier(X, s, k, q, w=None, res=20, ext=True, seed=None):
     return (ds, qs, cs)
 
 
-def __plot_frontier(ds, qs, dlabel='Diversity', qlabel='Quality', lims=False):
+def plot_frontier(ds, qs, dlabel='Diversity', qlabel='Observed Quality', title='Selection Possibility Frontier', lims=False):
     plt.scatter(qs, ds)
     if lims:
         plt.xlim([0, 1])
         plt.ylim([0, 1])
     plt.xlabel(qlabel)
     plt.ylabel(dlabel)
-    plt.title('SPF for Possible C1 Finalist Cohorts')
+    plt.title(title)
     plt.show()
