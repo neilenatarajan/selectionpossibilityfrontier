@@ -1,30 +1,9 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-import numbers
 import warnings
 
-
-
-# The following is borrowed from scikit-learn v0.17
-def check_random_state(seed):
-    '''Turn seed into a np.random.RandomState instance
-
-    If seed is None, return the RandomState singleton used by np.random.
-    If seed is an int, return a new RandomState instance seeded with seed.
-    If seed is already a RandomState instance, return it.
-    Otherwise raise ValueError.
-    '''
-    if seed is None or seed is np.random:
-        return np.random.mtrand._rand
-    if isinstance(seed, (numbers.Integral, np.integer)):
-        return np.random.RandomState(seed)
-    if isinstance(seed, np.random.RandomState):
-        return seed
-    raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
-                     ' instance' % seed)
-
+from .utils import check_random_state
 
 # The following is borrowed from entrofy
 def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
@@ -140,7 +119,7 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
             delta_div_scaled = (df(p_new) - df(p)) / qmax
             delta_qual_scaled = s / k
             delta = delta_div_scaled*(1-sratio) + delta_qual_scaled*sratio
-
+            
         # Knock out the points we've already taken
         delta[y] = -np.inf
 
@@ -153,53 +132,6 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         y[new_idx] = True
     
     return ((df(np.nansum(X[y], axis=0)) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
-
-def __proportional_targets(p, q, w, alpha=0.5):
-    '''Compute the diversity value of a solution.'''
-    return ((np.minimum(q, p))**(alpha)).dot(w)
-
-def make_proportional_targets(k, q, w=None, alpha=0.5):
-    '''Returns Proportional Diversity Function
-
-    Parameters
-    ----------
-    k : int in (0, len(df)]
-        The number of participants to select
-    
-    q : np.array
-        1D Array of dim n. Contains target proportions by attribute.
-
-    w : optional, dict {column: float}
-        Weighting over df columns
-        By default, a uniform weighting is used
-        
-    alpha : float in (0, 1]
-        Scaling exponent for the objective function.
-
-    Returns
-    -------
-    divfunc : np.array -> float
-        Function for calculating proportional diversity
-
-    dfmax : float
-        Maximum value of the diversity function
-    '''
-    if w is None:
-        w = np.ones(X.shape[1])
-
-    assert not np.any(w < 0)
-    assert np.all(q >= 0.0) and np.all(q <= 1.0)
-
-    # Convert fractions to sums
-    q = np.round(k * q)
-
-    return (lambda p: __proportional_targets(p, q, w, alpha), __proportional_targets(q, q, w, alpha))
-
-def __presence_targets(p, q, n, alpha=0.5):
-    '''Compute the diversity value of a solution.'''
-    # Should this be the straightforward sum of all of the nations, up to the limit
-    # Or should this be the sum of the greatest n nations, up to the limit?
-    return (np.minumum(np.sum(np.minimum(q, p)), n*q)**(alpha))
 
 def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
     '''Return Cohorts on a Frontier
@@ -269,14 +201,3 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
         
         
     return (ds, qs, cs)
-
-
-def plot_frontier(ds, qs, dlabel='Diversity', qlabel='Observed Quality', title='Selection Possibility Frontier', lims=False):
-    plt.scatter(qs, ds)
-    if lims:
-        plt.xlim([0, 1])
-        plt.ylim([0, 1])
-    plt.xlabel(qlabel)
-    plt.ylabel(dlabel)
-    plt.title(title)
-    plt.show()

@@ -1,8 +1,11 @@
 from setuptools import setup, find_packages
 
+import imp
+version = imp.load_source('selectionpossibilityfrontier.version', 'selectionpossibilityfrontier/version.py')
+
 setup(
   name='selectionpossibilityfrontier',
-  version='0.0.2',
+  version=version.version,
   author='Neil Natarajan',
   author_email='neilenatarajan@gmail.com',
   packages=find_packages(include=['selectionpossibilityfrontier', 'selectionpossibilityfrontier.*']),
