@@ -5,6 +5,75 @@ import warnings
 
 from .utils import check_random_state
 
+def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
+    '''Return Cohorts on a Frontier
+
+    Parameters
+    ----------
+    X : np.array
+        2D Array of dims n by m. Rows are participants, and columns are (binarised) attributes.
+        
+    s : np.array
+        1D Array of dim m. Contains scores by participant.
+
+    k : int in (0, len(df)]
+        The number of participants to select
+    
+    q : np.array
+        1D Array of dim n. Contains target proportions by attribute.
+
+    w : optional, dict {column: float}
+        Weighting over df columns
+        By default, a uniform weighting is used
+        
+    res : optional, int
+        Resolution of Frontier curve
+        
+    ext : optional, Bool
+        Determines whether to include the extremes of the curve
+        
+    seed : [optional] int or numpy.random.RandomState
+        An optional seed or random number state.
+
+    Returns
+    -------
+    idx : pd.Index, length=(k,)
+        Indices of the selected rows
+
+    score : float
+        The score of the solution found.  Larger is better.
+    '''
+
+
+    ds = []
+    qs = []
+    cs = []
+
+    for i in range(res):
+        
+        if ext:  
+            sratio = i/(res-1)
+        else:
+            sratio = (i+1)/(res+1)
+
+        div, qual, c = __optimise_cohort(
+            X, 
+            k, 
+            check_random_state(seed),
+            df = divfunc,
+            dfmax = dfmax,
+            quantile=0,
+            s=s,
+            sratio=sratio
+        )
+        
+        ds.append(div)
+        qs.append(qual)
+        cs.append(c)
+        
+        
+    return (ds, qs, cs)
+
 # The following is borrowed from entrofy
 def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
     '''Finds an optimal cohort with given s and q
@@ -18,27 +87,25 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         The number of participants to select
 
     rng : np.random.RandomState
-        the random state
+        The random state.
 
     w : optional, dict {column: float}
         Weighting over df columns
         By default, a uniform weighting is used
 
     df : function (vectorised)
-        Vectorised function on 1d np arrays. Returns diversity function.
+        Vectorised function on 1d np arrays. Returns diversity values.
+
+    dfmax : optional, float
+        Maximum value of df.
 
     pre_selects : None or iterable
         Optionally, you may pre-specify a set of rows to be forced into the
         solution.
         Values must be valid indices for df.
 
-    quantile : float, values in [0,1]
-        Define the quantile to be used in tie-breaking between top choices at
-        every step; choose e.g. 0.01 for the top 1% quantile
-        By default, 0.0
-
-    alpha : float in (0, 1]
-        Scaling exponent for the objective function.
+    quantile : optional, float in [0,1]
+        Define the quantile to be used in tie-breaking between top choices at every step.
 
     s : np.array
         1D Array of dim m. Contains scores by participant.
@@ -132,72 +199,3 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         y[new_idx] = True
     
     return ((df(np.nansum(X[y], axis=0)) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
-
-def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
-    '''Return Cohorts on a Frontier
-
-    Parameters
-    ----------
-    X : np.array
-        2D Array of dims n by m. Rows are participants, and columns are (binarised) attributes.
-        
-    s : np.array
-        1D Array of dim m. Contains scores by participant.
-
-    k : int in (0, len(df)]
-        The number of participants to select
-    
-    q : np.array
-        1D Array of dim n. Contains target proportions by attribute.
-
-    w : optional, dict {column: float}
-        Weighting over df columns
-        By default, a uniform weighting is used
-        
-    res : optional, int
-        Resolution of Frontier curve
-        
-    ext : optional, Bool
-        Determines whether to include the extremes of the curve
-        
-    seed : [optional] int or numpy.random.RandomState
-        An optional seed or random number state.
-
-    Returns
-    -------
-    idx : pd.Index, length=(k,)
-        Indices of the selected rows
-
-    score : float
-        The score of the solution found.  Larger is better.
-    '''
-
-
-    ds = []
-    qs = []
-    cs = []
-
-    for i in range(res):
-        
-        if ext:  
-            sratio = i/(res-1)
-        else:
-            sratio = (i+1)/(res+1)
-
-        div, qual, c = __optimise_cohort(
-            X, 
-            k, 
-            check_random_state(seed),
-            df = divfunc,
-            dfmax = dfmax,
-            quantile=0,
-            s=s,
-            sratio=sratio
-        )
-        
-        ds.append(div)
-        qs.append(qual)
-        cs.append(c)
-        
-        
-    return (ds, qs, cs)
