@@ -75,7 +75,7 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
     return (ds, qs, cs)
 
 # The following is borrowed from entrofy
-def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
+def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, S=None, sf=None, sratio=0):
     '''Finds an optimal cohort with given s and q
 
     Parameters
@@ -107,8 +107,11 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
     quantile : optional, float in [0,1]
         Define the quantile to be used in tie-breaking between top choices at every step.
 
-    s : np.array
-        1D Array of dim m. Contains scores by participant.
+    S : np.array
+        2D Array of dims n by m. Rows are participants, and columns are scores across different dimensions.
+    
+    sf : function (vectorised)
+        Vectorised function on 1d np arrays. Returns score values.
 
     sratio : float in [0, 1]
         Weighting ratio of score : diversity  
@@ -131,7 +134,7 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
     X = np.array(X, dtype=float)
 
     assert 0 < k <= n_participants
-    assert (s is not None) or (sratio == 0)
+    assert (S is not None and ds is not None) or (sratio == 0)
     assert sratio >= 0 and sratio <= 1
 
     if k == n_participants:
@@ -175,6 +178,8 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         # Wherever X is nan, propagate the old p since we have no new information
         p_new[Xn] = (Xn * p)[Xn]
 
+        y_new = y + np.identity(y.shape[0])
+
         # Compute marginal gain for each candidate
         # Simple if not calculating quality
         
@@ -184,7 +189,7 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         # If calculating quality, scale both scores and sum
         else:
             delta_div_scaled = (df(p_new) - df(p)) / qmax
-            delta_qual_scaled = s / k
+            delta_qual_scaled = (sf(y_new) - sf(y)) / qmax
             delta = delta_div_scaled*(1-sratio) + delta_qual_scaled*sratio
             
         # Knock out the points we've already taken
@@ -198,4 +203,4 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         new_idx = rng.choice(np.flatnonzero(delta >= target_score))
         y[new_idx] = True
     
-    return ((df(np.nansum(X[y], axis=0)) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
+    return ((df(np.nansum(X[y], axis=0)) / qmax), sf(S[y]), np.flatnonzero(y))
