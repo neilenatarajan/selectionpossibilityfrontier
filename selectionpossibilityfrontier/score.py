@@ -28,34 +28,32 @@ def make_combined_scores(*ss, scale=False):
     else:
         return (lambda p: sum([sf(p) for (sf, _) in ss]), sum([smax for (_, smax) in ss]))
 
-def make_mean_scoring(q, n, alpha=0.5):
+def make_mean_scores(k, q, alpha=1):
     '''Returns The Mean Score
     I.e. Mean value of all scores of selected candidates
 
     Parameters
     ----------
-    q : np.array
-        1D Array of dim n. Contains target numbers by attribute.
+    k : int in (0, len(df)]
+        The number of participants to select
+    
+    q : float
+        The max score value.
 
-    n : int in (0, len(q)]
-        The number of attributes to consider
-        
     alpha : optional, float in (0, 1]
         Scaling exponent for the objective function.
 
     Returns
     -------
-    divfunc : np.array -> float
-        Function for calculating presence-based diversity
+    scorefunc : np.array -> float
+        Function for calculating mean scores
 
-    dfmax : float
-        Maximum value of the diversity function
+    sfmax : float
+        Maximum value of the score function
     '''
 
-    assert n > 0 and n <= len(q)
+    return (lambda s: __mean_score(s, alpha), __mean_score(np.repeat(q, k), alpha))
 
-    return (lambda p: __presence_targets(p, q, n, alpha), __presence_targets(q, q, n, alpha))
-
-def __proportional_targets(p, q, w, alpha=0.5):
-    '''Compute the diversity value of a solution.'''
-    return ((np.minimum(q, p))**(alpha)).dot(w)
+def __mean_score(s, alpha=1):
+    '''Compute the mean scores of a cohort.'''
+    return np.sum(s**(alpha), axis=-1)
