@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import warnings
 
-def apply_target_function(tf, C, scale=False, tfmax=None):
+def apply_target(tf, C, scale=False, tfmax=None):
     '''Applies a target function to a given cohort
 
     Parameters
