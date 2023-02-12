@@ -1,5 +1,42 @@
 import numpy as np
 import pandas as pd
+import warnings
+
+def apply_target_function(tf, C, scale=False, tfmax=None):
+    '''Applies a target function to a given cohort
+
+    Parameters
+    ----------
+    tf : np.array -> float
+        Diversity target function
+
+    C : np.array
+        2D Array of dims n by m. Rows are participants, columns are (binarised) attributes.
+
+    scale : optional, boolean
+        If true, indicates that function should be scaled on [0, 1] before returning
+
+    tfmax : optional, float
+        Maximum value of tf
+
+    Returns
+    -------
+    diversity : float
+        Diversity score of C according to tf
+    '''
+
+    assert not(scale and (tfmax is None))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        p = np.nansum(C, axis=0)
+
+    p[np.isnan(p)] = 0.0
+
+    if scale:
+        return tf(p)/tfmax
+    else:
+        return tf(p)
 
 def make_combined_targets(*ts, scale=False):
     '''Returns Combined Diversity Function
