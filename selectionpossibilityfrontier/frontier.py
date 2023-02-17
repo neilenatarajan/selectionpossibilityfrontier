@@ -5,7 +5,7 @@ import warnings
 
 from .utils import check_random_state
 
-def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
+def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None, seed=None, verbose=False):
     '''Return Cohorts on a Frontier
 
     Parameters
@@ -14,7 +14,7 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
         2D Array of dims n by m. Rows are participants, and columns are (binarised) attributes.
         
     s : np.array
-        1D Array of dim m. Contains scores by participant.
+        1D Array of dim m. Contains performance scores by participant.
 
     k : int in (0, len(df)]
         The number of participants to select
@@ -31,9 +31,17 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
         
     ext : optional, Bool
         Determines whether to include the extremes of the curve
+
+    pre_selects : None or iterable
+        Optionally, you may pre-specify a set of rows to be forced into the
+        solution.
+        Values must be valid indices for df.
         
-    seed : [optional] int or numpy.random.RandomState
+    seed : optional, int or numpy.random.RandomState
         An optional seed or random number state.
+
+    verbose : optional, bool
+        If True, print progress to stdout.
 
     Returns
     -------
@@ -49,14 +57,16 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
     qs = []
     cs = []
 
+    if verbose:
+            print('Beginning Frontier Plotting')
+
     for i in range(res):
-        
         if ext:  
             sratio = i/(res-1)
         else:
             sratio = (i+1)/(res+1)
 
-        div, qual, c = __optimise_cohort(
+        div, perf, c = __optimise_cohort(
             X, 
             k, 
             check_random_state(seed),
@@ -64,12 +74,16 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, seed=None):
             dfmax = dfmax,
             quantile=0,
             s=s,
-            sratio=sratio
+            sratio=sratio,
+            pre_selects=pre_selects
         )
         
         ds.append(div)
-        qs.append(qual)
+        qs.append(perf)
         cs.append(c)
+
+        if verbose:
+            print('Completed step {} of {} | sratio: {:.2f} | diversity score: {:.2f} | performance score: {:.2f}'.format(i+1, res, sratio, div, perf))
         
         
     return (ds, qs, cs)
@@ -119,8 +133,8 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
     div : float
         The diversity of the solution found.  Larger is better.
 
-    qual : float
-        The mean score of the solution found.  Larger is better.
+    perf : float
+        The mean performance score of the solution found.  Larger is better.
 
     idx : pd.Index, length=(k,)
         Indices of the selected rows
@@ -176,16 +190,16 @@ def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, 
         p_new[Xn] = (Xn * p)[Xn]
 
         # Compute marginal gain for each candidate
-        # Simple if not calculating quality
+        # Simple if not calculating performance
         
         if sratio == 0:
             delta = df(p_new) - df(p)
            
-        # If calculating quality, scale both scores and sum
+        # If calculating performance, scale both scores and sum
         else:
             delta_div_scaled = (df(p_new) - df(p)) / qmax
-            delta_qual_scaled = s / k
-            delta = delta_div_scaled*(1-sratio) + delta_qual_scaled*sratio
+            delta_perf_scaled = s / k
+            delta = delta_div_scaled*(1-sratio) + delta_perf_scaled*sratio
             
         # Knock out the points we've already taken
         delta[y] = -np.inf
