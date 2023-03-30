@@ -66,7 +66,7 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None,
         else:
             sratio = (i+1)/(res+1)
 
-        div, perf, c = __optimise_cohort(
+        div, perf, c = optimise_cohort(
             X, 
             k, 
             check_random_state(seed),
@@ -89,7 +89,7 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None,
     return (ds, qs, cs)
 
 # The following is borrowed from entrofy
-def __optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
+def optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
     '''Finds an optimal cohort with given s and q
 
     Parameters

@@ -139,4 +139,5 @@ def __presence_targets(p, q, n, alpha=0.5):
     p = np.sort(np.minimum(q, p))
     p[..., :-n] = 0 
     
+    # Then sum the remaining values
     return (np.sum(p, axis=-1)**(alpha))
