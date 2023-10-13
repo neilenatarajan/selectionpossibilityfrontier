@@ -5,7 +5,7 @@ import warnings
 
 from .utils import check_random_state
 
-def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None, seed=None, verbose=False):
+def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None, seed=None, scale=True, verbose=False):
     '''Return Cohorts on a Frontier
 
     Parameters
@@ -39,10 +39,13 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None,
         
     seed : optional, int or numpy.random.RandomState
         An optional seed or random number state.
+    
+    scale : optional, bool
+        If True, returns diversity and performance scores as fraction of theoretical maximum.
 
     verbose : optional, bool
         If True, print progress to stdout.
-
+    
     Returns
     -------
     idx : pd.Index, length=(k,)
@@ -75,7 +78,8 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None,
             quantile=0,
             s=s,
             sratio=sratio,
-            pre_selects=pre_selects
+            pre_selects=pre_selects,
+            scale=scale
         )
         
         ds.append(div)
@@ -89,7 +93,7 @@ def return_frontier(X, s, k, divfunc, dfmax, res=20, ext=True, pre_selects=None,
     return (ds, qs, cs)
 
 # The following is borrowed from entrofy
-def optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0):
+def optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, quantile=0.0, s=None, sratio=0, scale=True):
     '''Finds an optimal cohort with given s and q
 
     Parameters
@@ -212,4 +216,9 @@ def optimise_cohort(X, k, rng, w=None, df=None, dfmax=None, pre_selects=None, qu
         new_idx = rng.choice(np.flatnonzero(delta >= target_score))
         y[new_idx] = True
     
-    return ((df(np.nansum(X[y], axis=0)) / qmax), (sum(s[y]) / k), np.flatnonzero(y))
+    if scale:
+        dval = (df(np.nansum(X[y], axis=0)) / qmax)
+    else:
+        dval = df(np.nansum(X[y], axis=0))
+
+    return (dval, (sum(s[y]) / k), np.flatnonzero(y))
