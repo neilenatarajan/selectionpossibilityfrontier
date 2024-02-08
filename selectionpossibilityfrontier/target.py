@@ -38,16 +38,22 @@ def apply_target(tf, C, scale=False, tfmax=None):
     else:
         return tf(p)
 
-def make_combined_targets(*ts, scale=False):
+def make_combined_targets(ts, tmaxes, scale=False, weights=None):
     '''Returns Combined Diversity Function
 
     Parameters
     ----------
-    ts : list of (np.array -> float, float)
-        List containing tuples of target functions and maximums
+    ts : list of (np.array, float) -> float
+        List containing target functions 
+
+    tmaxes : list of float
+        List containing maximums
 
     scale : optional, boolean
         If true, indicates that functions should be scaled on [0, 1] before combining
+
+    weights : optional, np.array
+        If scale, uses these weights when combining targets
 
     Returns
     -------
@@ -60,10 +66,10 @@ def make_combined_targets(*ts, scale=False):
 
     # Scale target functions if desired
     if scale:
-        return (lambda p: sum([tf(p)/tmax for (tf, tmax) in ts]), sum([tmax/tmax for (_, tmax) in ts]))
+        return (lambda p: sum([tf(p)*w/tmax for (tf, tmax, w) in zip(ts, tmaxes, weights)]), sum([w for w in weights]))
 
     else:
-        return (lambda p: sum([tf(p) for (tf, _) in ts]), sum([tmax for (_, tmax) in ts]))
+        return (lambda p: sum([tf(p) for tf in ts]), sum([tmax for tmax in tmaxes]))
 
 def make_proportional_targets(k, q, w=None, alpha=0.5):
     '''Returns Proportional Diversity Function
@@ -100,7 +106,43 @@ def make_proportional_targets(k, q, w=None, alpha=0.5):
     # Convert fractions to sums
     q = np.round(k * q)
 
-    return (lambda p: __proportional_targets(p, q, w, alpha), __proportional_targets(q, q, w, alpha))
+    return (lambda p, s: __proportional_targets(p, q, w, alpha), __proportional_targets(q, q, w, alpha))
+
+def make_mean_targets(k, q, w=None, alpha=0.5):
+    '''Returns Proportional Diversity Function
+
+    Parameters
+    ----------
+    k : int in (0, len(df)]
+        The number of participants to select
+    
+    m : float
+        The target score mean by attribute.
+
+    w : optional, float
+        Weighting
+        
+    alpha : optional, float in (0, 1]
+        Scaling exponent for the objective function.
+
+    Returns
+    -------
+    divfunc : np.array -> float
+        Function for calculating proportional diversity
+
+    dfmax : float
+        Maximum value of the diversity function
+    '''
+    if w is None:
+        w = np.ones(X.shape[1])
+
+    assert not np.any(w < 0)
+    assert np.all(q >= 0.0) and np.all(q <= 1.0)
+
+    # Convert means to sums
+    m = np.round(k * m)
+
+    return (lambda p, s: __mean_targets(s, m, w, alpha), __mean_targets(m, m, w, alpha))
 
 def make_presence_targets(q, n, alpha=0.5):
     '''Returns Presence Diversity Function
@@ -127,7 +169,11 @@ def make_presence_targets(q, n, alpha=0.5):
 
     assert n > 0 and n <= len(q)
 
-    return (lambda p: __presence_targets(p, q, n, alpha), __presence_targets(q, q, n, alpha))
+    return (lambda p, s: __presence_targets(p, q, n, alpha), __presence_targets(q, q, n, alpha))
+
+def __mean_targets(s, m, w, alpha=0.5):
+    '''Compute the diversity value of a solution.'''
+    return (np.minimum(s, m)**(alpha))*w
 
 def __proportional_targets(p, q, w, alpha=0.5):
     '''Compute the diversity value of a solution.'''
