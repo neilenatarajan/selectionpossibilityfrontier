@@ -214,8 +214,8 @@ def optimise_cohort(X, s, k, rng, df=None, dfmax=None, pf=None, pfmax=None, pre_
         y[new_idx] = True
     
     if scale:
-        dval = (df(np.nansum(X[y], axis=0)) / dfmax)
-        pval = (pf(np.nansum(X[y], axis=0)) / pfmax)
+        dval = (df(np.nansum(X[y], axis=0), np.nansum(s[y])) / dfmax)
+        pval = (pf(np.nansum(X[y], axis=0), np.nansum(s[y])) / pfmax)
 
     else:
         dval = df(np.nansum(X[y], axis=0))

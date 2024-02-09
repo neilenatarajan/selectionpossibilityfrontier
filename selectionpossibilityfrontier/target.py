@@ -66,10 +66,10 @@ def make_combined_targets(ts, tmaxes, scale=False, weights=None):
 
     # Scale target functions if desired
     if scale:
-        return (lambda p: sum([tf(p)*w/tmax for (tf, tmax, w) in zip(ts, tmaxes, weights)]), sum([w for w in weights]))
+        return (lambda p, s: sum([tf(p, s)*w/tmax for (tf, tmax, w) in zip(ts, tmaxes, weights)]), sum([w for w in weights]))
 
     else:
-        return (lambda p: sum([tf(p) for tf in ts]), sum([tmax for tmax in tmaxes]))
+        return (lambda p, s: sum([tf(p, s) for tf in ts]), sum([tmax for tmax in tmaxes]))
 
 def make_proportional_targets(k, q, w=None, alpha=0.5):
     '''Returns Proportional Diversity Function
@@ -98,7 +98,7 @@ def make_proportional_targets(k, q, w=None, alpha=0.5):
         Maximum value of the diversity function
     '''
     if w is None:
-        w = np.ones(X.shape[1])
+        w = np.ones(q.shape[0])
 
     assert not np.any(w < 0)
     assert np.all(q >= 0.0) and np.all(q <= 1.0)
@@ -108,8 +108,8 @@ def make_proportional_targets(k, q, w=None, alpha=0.5):
 
     return (lambda p, s: __proportional_targets(p, q, w, alpha), __proportional_targets(q, q, w, alpha))
 
-def make_mean_targets(k, q, w=None, alpha=0.5):
-    '''Returns Proportional Diversity Function
+def make_mean_targets(k, m, w=None, alpha=0.5):
+    '''Returns Mean Diversity Function
 
     Parameters
     ----------
@@ -134,10 +134,9 @@ def make_mean_targets(k, q, w=None, alpha=0.5):
         Maximum value of the diversity function
     '''
     if w is None:
-        w = np.ones(X.shape[1])
+        w = 1
 
     assert not np.any(w < 0)
-    assert np.all(q >= 0.0) and np.all(q <= 1.0)
 
     # Convert means to sums
     m = np.round(k * m)
